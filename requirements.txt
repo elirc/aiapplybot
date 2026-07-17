@@ -1,0 +1,6 @@
+anthropic>=0.90.0
+openai>=1.40.0
+playwright>=1.49.0
+pydantic>=2.8.0
+PyYAML>=6.0
+python-dotenv>=1.0.0

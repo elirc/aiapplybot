@@ -1,0 +1,93 @@
+# ============================================================
+# ApplyBot profile — copy to profile.yaml and fill in your info.
+# Everything here is sent to Claude so it can fill applications
+# truthfully on your behalf. The bot never invents facts that
+# aren't in this file.
+# ============================================================
+
+personal:
+  first_name: "Eli"
+  last_name: "Your-Last-Name"
+  full_name: "Eli Your-Last-Name"
+  email: "elirc3@gmail.com"
+  phone: "+1 555 555 5555"
+  address: "123 Main St"
+  city: "Your City"
+  state: "Your State"
+  zip: "00000"
+  country: "United States"
+
+links:
+  linkedin: "https://linkedin.com/in/your-handle"
+  github: "https://github.com/your-handle"
+  portfolio: ""
+
+documents:
+  # Absolute paths work best on Windows.
+  resume: "C:/Users/Owner/Documents/resume.pdf"
+  cover_letter: ""   # optional; leave empty to have answers written inline instead
+
+work_authorization:
+  authorized_to_work_us: true
+  require_sponsorship: false
+  # Free-text note if your situation needs explanation:
+  note: ""
+
+# Used when Claude writes answers to open-ended questions
+# ("Tell us about yourself", "Why this company?", salary, etc.)
+background:
+  current_title: "Software Developer"
+  years_experience: 3
+  summary: >
+    Two or three sentences about who you are professionally,
+    what you're great at, and what you're looking for.
+  skills:
+    - Python
+    - JavaScript
+    - SQL
+  education:
+    - school: "Your University"
+      degree: "B.S. Computer Science"
+      graduation_year: 2021
+  work_history:
+    - company: "Most Recent Co"
+      title: "Software Developer"
+      start: "2022-01"
+      end: "present"
+      highlights:
+        - "Built X that achieved Y"
+    - company: "Previous Co"
+      title: "Junior Developer"
+      start: "2020-06"
+      end: "2021-12"
+      highlights:
+        - "Did Z"
+
+preferences:
+  desired_salary: "Open / negotiable"
+  earliest_start_date: "Two weeks from offer"
+  willing_to_relocate: false
+  remote_preference: "Remote or hybrid preferred"
+  how_did_you_hear: "Company website"
+
+# Standing answers to questions that come up constantly.
+# Add your own as you notice repeats — Claude will use these verbatim
+# when a form asks something matching.
+canned_answers:
+  "Are you over 18": "Yes"
+  "Have you ever been convicted of a felony": "No"
+  "Have you previously worked for this company": "No"
+
+# Voluntary EEO / demographic questions. Set any to
+# "Decline to self identify" if you prefer not to answer.
+eeo:
+  gender: "Decline to self identify"
+  race_ethnicity: "Decline to self identify"
+  veteran_status: "I am not a protected veteran"
+  disability_status: "I do not want to answer"
+
+# Extra guidance for Claude when writing free-text answers.
+writing_style: >
+  Concise, confident, first person. No buzzwords or filler.
+  Keep answers under 150 words unless the question clearly
+  calls for more.
