@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ApplyBot · Application tracker</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header class="hero">
+        <p class="eyebrow">YOUR CAREER WORKSPACE</p>
+        <h1>Keep every next step clear.</h1>
+        <p>
+          Track applications, record interview notes, and review the work ahead.
+        </p>
+      </header>
+      <section id="login" class="panel login">
+        <h2>Open your local tracker</h2>
+        <p>
+          Use the private link printed by the tracker command, or enter its
+          local access token below.
+        </p>
+        <form id="login-form">
+          <label
+            >Local access token<input
+              id="token"
+              type="password"
+              minlength="32"
+              maxlength="128"
+              autocomplete="off"
+              required /></label
+          ><button class="primary">Open tracker</button>
+        </form>
+      </section>
+      <p id="error" class="message error" role="alert" hidden></p>
+      <p id="notice" class="message success" role="status" hidden></p>
+      <section id="workspace" hidden>
+        <div class="toolbar">
+          <div>
+            <span class="badge">LOCAL WORKSPACE</span>
+            <p>Changes are saved on this computer.</p>
+          </div>
+          <div class="actions">
+            <button id="new" class="primary">New application</button
+            ><button id="logout">Lock tracker</button>
+          </div>
+        </div>
+        <p id="legacy" class="message info" hidden>
+          Legacy history is available. Review it with
+          <code>python -m applybot import-history --dry-run</code>, then import
+          it to include those records here.
+        </p>
+        <div class="workspace-grid">
+          <section class="panel library">
+            <div class="section-title">
+              <h2>Application library</h2>
+              <button id="refresh">Refresh</button>
+            </div>
+            <label
+              >Search applications<input
+                id="search"
+                maxlength="120"
+                type="search"
+                placeholder="Company, role, or notes" /></label
+            ><label
+              >Filter status<select id="status-filter">
+                <option value="">All statuses</option>
+                <option value="queued">Queued</option>
+                <option value="applied">Applied</option>
+                <option value="interview">Interview</option>
+                <option value="offer">Offer</option>
+                <option value="rejected">Rejected</option>
+                <option value="abandoned">Abandoned</option>
+                <option value="incomplete">Incomplete</option>
+              </select></label
+            >
+            <p id="list-status" role="status"></p>
+            <p id="list-error" class="error" role="alert" hidden></p>
+            <div id="records" class="records"></div>
+            <div class="pagination">
+              <button id="previous">Previous</button
+              ><span id="page-label"></span><button id="next">Next</button>
+            </div>
+          </section>
+          <section class="panel editor-panel">
+            <div id="empty-editor">
+              <p class="eyebrow">MAKE ROOM FOR THE NEXT STEP</p>
+              <h2>Your application notebook</h2>
+              <p>
+                Choose a record to review its details, or start a new
+                application. Keep role links, status updates, and follow-up
+                notes together.
+              </p>
+              <div class="example">
+                <h3>A useful note answers three questions</h3>
+                <p>
+                  What happened? What is the next action? When should I follow
+                  up?
+                </p>
+              </div>
+            </div>
+            <form id="editor" hidden>
+              <div class="section-title">
+                <h2 id="editor-heading">New application</h2>
+                <span id="version-label" class="badge"></span>
+              </div>
+              <p id="draft-state"></p>
+              <fieldset id="fields">
+                <label
+                  >Company<input
+                    name="company"
+                    maxlength="120"
+                    required /></label
+                ><label
+                  >Role title<input
+                    name="title"
+                    maxlength="160"
+                    required /></label
+                ><label
+                  >Job URL<input
+                    name="url"
+                    type="url"
+                    maxlength="2048"
+                    placeholder="https://jobs.example.com/role"
+                    required /></label
+                ><label
+                  >Application status<select name="status">
+                    <option value="queued">Queued</option>
+                    <option value="applied">Applied</option>
+                    <option value="interview">Interview</option>
+                    <option value="offer">Offer</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="abandoned">Abandoned</option>
+                    <option value="incomplete">Incomplete</option>
+                  </select></label
+                ><label
+                  >Follow-up notes<textarea
+                    name="notes"
+                    rows="9"
+                    maxlength="5000"
+                    placeholder="Interview preparation, dates, and next actions"
+                  ></textarea>
+                </label>
+              </fieldset>
+              <div class="actions">
+                <button id="save" class="primary">Save application</button
+                ><button id="export-draft" type="button">
+                  Export editor draft</button
+                ><button id="load-current" type="button">
+                  Load current record</button
+                ><button id="discard" type="button">Close editor</button>
+              </div>
+              <div id="record-actions" class="record-actions">
+                <a id="job-link" target="_blank" rel="noopener noreferrer"
+                  >Open saved job link ↗</a
+                ><button id="delete" class="danger" type="button">
+                  Delete application
+                </button>
+              </div>
+              <section id="audit-panel">
+                <h3>Recent changes</h3>
+                <p id="audit-error" class="error" hidden></p>
+                <ol id="audit"></ol>
+              </section>
+            </form>
+          </section>
+        </div>
+      </section>
+      <footer>
+        Build a clear record of your progress. Export backups regularly.
+      </footer>
+    </main>
+  </body>
+</html>

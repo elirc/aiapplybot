@@ -45,8 +45,12 @@ class FieldAction(BaseModel):
 
 
 class FormPlan(BaseModel):
-    company: Optional[str] = Field(default=None, description="Company name, if identifiable from the page.")
-    job_title: Optional[str] = Field(default=None, description="Job title, if identifiable from the page.")
+    company: Optional[str] = Field(
+        default=None, description="Company name, if identifiable from the page."
+    )
+    job_title: Optional[str] = Field(
+        default=None, description="Job title, if identifiable from the page."
+    )
     actions: List[FieldAction]
     notes: Optional[str] = Field(
         default=None,
@@ -195,8 +199,13 @@ class ClaudeCodeBackend:
             cmd += ["--model", self._model_arg]
         try:
             proc = subprocess.run(
-                cmd, input=prompt, capture_output=True, text=True,
-                encoding="utf-8", errors="replace", timeout=600,
+                cmd,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=600,
             )
         except subprocess.TimeoutExpired:
             raise RuntimeError("claude CLI timed out after 10 minutes.")
@@ -207,11 +216,21 @@ class ClaudeCodeBackend:
             raise RuntimeError("claude CLI returned no output.")
         return proc.stdout
 
-    def plan_form(self, profile_yaml: str, fields: list[dict], page_text: str,
-                  url: str, ats_note: str) -> FormPlan:
-        prompt = (SYSTEM_PROMPT + profile_yaml + "\n\n"
-                  + _user_message(fields, page_text, url, ats_note)
-                  + JSON_INSTRUCTIONS)
+    def plan_form(
+        self,
+        profile_yaml: str,
+        fields: list[dict],
+        page_text: str,
+        url: str,
+        ats_note: str,
+    ) -> FormPlan:
+        prompt = (
+            SYSTEM_PROMPT
+            + profile_yaml
+            + "\n\n"
+            + _user_message(fields, page_text, url, ats_note)
+            + JSON_INSTRUCTIONS
+        )
         text = self._ask(prompt)
         try:
             return FormPlan.model_validate(extract_json(text))
@@ -219,7 +238,9 @@ class ClaudeCodeBackend:
             repair = (
                 "The following was supposed to be a single valid JSON object in this shape:\n"
                 + JSON_INSTRUCTIONS
-                + "\nbut it is malformed or mis-shaped:\n---\n" + text[:8000] + "\n---\n"
+                + "\nbut it is malformed or mis-shaped:\n---\n"
+                + text[:8000]
+                + "\n---\n"
                 "Output ONLY the corrected JSON object, nothing else."
             )
             return FormPlan.model_validate(extract_json(self._ask(repair)))
@@ -236,19 +257,29 @@ class LocalBackend:
     def __init__(self, model: str | None = None):
         pass
 
-    def plan_form(self, profile_yaml: str, fields: list[dict], page_text: str,
-                  url: str, ats_note: str) -> FormPlan:
+    def plan_form(
+        self,
+        profile_yaml: str,
+        fields: list[dict],
+        page_text: str,
+        url: str,
+        ats_note: str,
+    ) -> FormPlan:
         p = yaml.safe_load(profile_yaml) or {}
         actions = [self._plan_field(f, p) for f in fields]
         return FormPlan(
-            company=None, job_title=None, actions=actions,
+            company=None,
+            job_title=None,
+            actions=actions,
             notes="Offline plan from profile.yaml — open-ended questions were "
-                  "left for you to write.",
+            "left for you to write.",
         )
 
     def _plan_field(self, f: dict, p: dict) -> FieldAction:
         def act(action: str, value: str = "", reason: str | None = None) -> FieldAction:
-            return FieldAction(field_id=f["id"], action=action, value=value, reason=reason)
+            return FieldAction(
+                field_id=f["id"], action=action, value=value, reason=reason
+            )
 
         label = f"{f.get('label') or ''} {f.get('name') or ''}".lower()
         ftype = f.get("type", "")
@@ -264,53 +295,86 @@ class LocalBackend:
         canned = p.get("canned_answers", {}) or {}
 
         # Leave already-filled text-like fields alone.
-        if ftype in ("text", "email", "tel", "url", "textarea") and f.get("current_value"):
+        if ftype in ("text", "email", "tel", "url", "textarea") and f.get(
+            "current_value"
+        ):
             return act("skip", reason="already filled")
 
         if ftype == "file":
             if has("resume", "cv"):
-                return (act("upload", "resume") if docs.get("resume")
-                        else act("skip", reason="no resume path in profile.yaml"))
+                return (
+                    act("upload", "resume")
+                    if docs.get("resume")
+                    else act("skip", reason="no resume path in profile.yaml")
+                )
             if has("cover"):
-                return (act("upload", "cover_letter") if docs.get("cover_letter")
-                        else act("skip", reason="no cover letter file"))
+                return (
+                    act("upload", "cover_letter")
+                    if docs.get("cover_letter")
+                    else act("skip", reason="no cover letter file")
+                )
             return act("skip", reason="unknown file field")
 
         if ftype == "checkbox":
-            if has("marketing", "newsletter", "promotional", "job alerts", "updates from"):
+            if has(
+                "marketing", "newsletter", "promotional", "job alerts", "updates from"
+            ):
                 return act("skip", reason="marketing opt-in")
-            if has("certify", "accurate", "true and complete", "acknowledge", "agree",
-                   "terms", "consent", "privacy"):
-                return act("check", "true")
+            if has(
+                "certify",
+                "accurate",
+                "true and complete",
+                "acknowledge",
+                "agree",
+                "terms",
+                "consent",
+                "privacy",
+            ):
+                return act("skip", reason="certification or consent — review manually")
             return act("skip", reason="checkbox — review manually")
 
         # Canned answers win over everything below.
         value: str | None = None
         for q, a in canned.items():
-            if q.lower() in label:
+            if q.lower() in label and a is not None and str(a).strip():
                 value = str(a)
                 break
 
         if value is None:
             value = self._standard_value(label, has, personal, links, auth, prefs, eeo)
 
-        if value is None:
-            if ftype == "textarea" or has("why ", "describe", "tell us", "cover letter",
-                                          "about yourself", "anything else", "additional"):
-                return act("skip", reason="open-ended — write manually or use --llm cli")
+        if value is None or not str(value).strip():
+            if ftype == "textarea" or has(
+                "why ",
+                "describe",
+                "tell us",
+                "cover letter",
+                "about yourself",
+                "anything else",
+                "additional",
+            ):
+                return act(
+                    "skip", reason="open-ended — write manually or use --llm cli"
+                )
             return act("skip", reason="no matching rule")
 
         if options or ftype == "radio":
             idx = _match_option(value, options)
             if idx is None:
-                return act("skip", reason=f"profile value {value[:30]!r} not in options")
+                return act(
+                    "skip", reason=f"profile value {value[:30]!r} not in options"
+                )
             return act("select", options[idx])
         return act("fill", value)
 
     @staticmethod
     def _standard_value(label, has, personal, links, auth, prefs, eeo) -> str | None:
-        def yn(flag: object) -> str:
-            return "Yes" if flag else "No"
+        def yn(flag: object) -> str | None:
+            if flag is True:
+                return "Yes"
+            if flag is False:
+                return "No"
+            return None
 
         def word(*ws: str) -> bool:
             # Whole-word match so "city" can't hit "ethnicity" or "state" hit
@@ -321,7 +385,9 @@ class LocalBackend:
         # substrings ("United States", "ethnicity").
         if has("sponsor"):
             return yn(auth.get("require_sponsorship"))
-        if has("authorized", "authorised", "legally", "work authorization", "right to work"):
+        if has(
+            "authorized", "authorised", "legally", "work authorization", "right to work"
+        ):
             return yn(auth.get("authorized_to_work_us"))
         if has("race", "ethnic"):
             return eeo.get("race_ethnicity")
@@ -384,8 +450,14 @@ class ClaudeBackend:
         self.model = model or CLAUDE_MODEL
         self.client = anthropic.Anthropic()
 
-    def plan_form(self, profile_yaml: str, fields: list[dict], page_text: str,
-                  url: str, ats_note: str) -> FormPlan:
+    def plan_form(
+        self,
+        profile_yaml: str,
+        fields: list[dict],
+        page_text: str,
+        url: str,
+        ats_note: str,
+    ) -> FormPlan:
         response = self.client.messages.parse(
             model=self.model,
             max_tokens=16000,
@@ -398,7 +470,12 @@ class ClaudeBackend:
                     "cache_control": {"type": "ephemeral"},
                 }
             ],
-            messages=[{"role": "user", "content": _user_message(fields, page_text, url, ats_note)}],
+            messages=[
+                {
+                    "role": "user",
+                    "content": _user_message(fields, page_text, url, ats_note),
+                }
+            ],
             output_format=FormPlan,
         )
         plan = response.parsed_output
@@ -420,7 +497,9 @@ class OpenAICompatBackend:
             raise SystemExit(
                 "For --llm custom, set APPLYBOT_BASE_URL (and APPLYBOT_API_KEY, APPLYBOT_MODEL)."
             )
-        api_key = os.environ.get(preset["key_env"]) or os.environ.get("APPLYBOT_API_KEY")
+        api_key = os.environ.get(preset["key_env"]) or os.environ.get(
+            "APPLYBOT_API_KEY"
+        )
         if not api_key:
             raise SystemExit(
                 f"No API key found for provider '{name}'. "
@@ -431,11 +510,21 @@ class OpenAICompatBackend:
             raise SystemExit("No model set. Pass --model or set APPLYBOT_MODEL.")
         self.client = OpenAI(base_url=base_url, api_key=api_key)
 
-    def plan_form(self, profile_yaml: str, fields: list[dict], page_text: str,
-                  url: str, ats_note: str) -> FormPlan:
+    def plan_form(
+        self,
+        profile_yaml: str,
+        fields: list[dict],
+        page_text: str,
+        url: str,
+        ats_note: str,
+    ) -> FormPlan:
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT + profile_yaml},
-            {"role": "user", "content": _user_message(fields, page_text, url, ats_note) + JSON_INSTRUCTIONS},
+            {
+                "role": "user",
+                "content": _user_message(fields, page_text, url, ats_note)
+                + JSON_INSTRUCTIONS,
+            },
         ]
         text = self._chat(messages)
         try:
@@ -444,14 +533,18 @@ class OpenAICompatBackend:
             # One repair round: show the model its own broken output.
             repair = messages + [
                 {"role": "assistant", "content": text},
-                {"role": "user", "content":
-                    "That was not valid JSON matching the required shape. "
-                    "Respond again with ONLY the corrected JSON object."},
+                {
+                    "role": "user",
+                    "content": "That was not valid JSON matching the required shape. "
+                    "Respond again with ONLY the corrected JSON object.",
+                },
             ]
             return FormPlan.model_validate(extract_json(self._chat(repair)))
 
     def _chat(self, messages: list[dict]) -> str:
-        kwargs = dict(model=self.model, messages=messages, temperature=0.3, max_tokens=8192)
+        kwargs = dict(
+            model=self.model, messages=messages, temperature=0.3, max_tokens=8192
+        )
         try:
             resp = self.client.chat.completions.create(
                 response_format={"type": "json_object"}, **kwargs
@@ -466,7 +559,9 @@ class OpenAICompatBackend:
 
 
 def build_backend(provider: str | None = None, model: str | None = None):
-    provider = (provider or os.environ.get("APPLYBOT_LLM") or _default_provider()).lower()
+    provider = (
+        provider or os.environ.get("APPLYBOT_LLM") or _default_provider()
+    ).lower()
     if provider in ("cli", "claude-code", "code"):
         return ClaudeCodeBackend(model)
     if provider in ("local", "offline"):

@@ -1,0 +1,5 @@
+# Reproduces the tested local profile/planner and browser checks.
+# The dashboard itself requires only Python's standard library.
+PyYAML==6.0.3
+pydantic==2.13.4
+playwright==1.59.0

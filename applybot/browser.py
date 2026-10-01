@@ -152,15 +152,21 @@ REQUIRED_JS = r"""
 
 class Browser:
     def __init__(self, headless: bool = False, profile_dir: str = ".browser_profile"):
-        self._pw = sync_playwright().start()
-        # Persistent context so logins (e.g. Workday accounts) survive between runs.
-        self._ctx = self._pw.chromium.launch_persistent_context(
-            user_data_dir=str(Path(profile_dir).absolute()),
-            headless=headless,
-            viewport={"width": 1400, "height": 950},
-            args=["--disable-blink-features=AutomationControlled"],
-        )
-        self.page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
+        self._pw = None
+        self._ctx = None
+        try:
+            self._pw = sync_playwright().start()
+            # Persistent context so logins (e.g. Workday accounts) survive between runs.
+            self._ctx = self._pw.chromium.launch_persistent_context(
+                user_data_dir=str(Path(profile_dir).absolute()),
+                headless=headless,
+                viewport={"width": 1400, "height": 950},
+                args=["--disable-blink-features=AutomationControlled"],
+            )
+            self.page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
+        except BaseException:
+            self.close()
+            raise
 
     def goto(self, url: str) -> None:
         self.page.goto(url, wait_until="domcontentloaded", timeout=60000)
@@ -211,7 +217,9 @@ class Browser:
                 continue
         return self.page.locator(sel)
 
-    def apply_action(self, field: dict, action: str, value: str, documents: dict) -> str:
+    def apply_action(
+        self, field: dict, action: str, value: str, documents: dict
+    ) -> str:
         """Execute one planned action. Returns a short status string."""
         frame_idx = field.get("frame", 0)
         loc = self._locator(field["id"], frame_idx)

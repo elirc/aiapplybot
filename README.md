@@ -1,130 +1,58 @@
-# ApplyBot
+# ApplyBot: local application tracker and assisted form filler
 
-AI-assisted job application filler for **company career sites** (Greenhouse, Lever,
-Ashby, Workday, and custom forms). You point it at a job URL; it opens a real
-browser, scans the application form, asks Claude to map your profile onto every
-field — including writing answers to open-ended questions — fills it all in, and
-then **waits for you to review and submit**. It never submits on its own unless you
-tell it to.
+Keep applications, notes, and status changes in SQLite. The new dashboard supports create, search, edit, delete, version conflicts, and retained change history. Start the [detailed learning course](astraupskill/README.md) to study the actual code as a CRUD web application.
 
-## Setup (one time)
+## Start the tracker
+
+From this project folder with Python 3.11 or later:
 
 ```powershell
-cd C:\Users\Owner\Desktop\aiapplybot
-pip install -r requirements.txt
-playwright install chromium
-
-# Create and edit your profile
-python -m applybot init
-notepad profile.yaml
+python -m applybot dashboard
 ```
 
-**No API key needed.** By default the bot plans forms through your installed
-Claude Code CLI (`claude -p`), which uses your Claude subscription login. If
-Claude Code isn't installed, it falls back to a fully offline rule-based
-planner. API-key providers remain available via `--llm` (see below).
+Open the private URL printed in the terminal. The dashboard uses the Python standard library: no provider account, API key, or JavaScript build is required. It binds to `127.0.0.1` and saves to `data/applications.sqlite3`. Stop with Ctrl+C. The token stays in browser memory; refreshing requires the private link or token again. Restarting creates a new token without changing records. This is a local personal tool with no user accounts or tenant roles.
 
-Fill in `profile.yaml` carefully — the bot only uses facts from that file and will
-skip anything it doesn't know. Set `documents.resume` to the path of your resume PDF.
+Use `--port 8422` to avoid a busy port or `--data-dir ./practice-data` for a separate database. The form filler and `history` still use the default `data` directory; a custom dashboard directory does not redirect those commands.
 
-## Applying to a job
+## Existing history and backups
+
+New automation logs go to SQLite. Existing `data/applications.jsonl` stays untouched. CLI history combines SQLite with unimported legacy records; the dashboard displays SQLite records only.
 
 ```powershell
-python -m applybot apply "https://boards.greenhouse.io/company/jobs/12345"
+python -m applybot history --limit 200
+python -m applybot import-history --dry-run
+python -m applybot import-history
+python -m applybot backup --output ./tracker-backup-2026-09-09.sqlite3
 ```
 
-1. A Chrome window opens on the job page. Dismiss cookie banners / click "Apply"
-   if needed, then press **Enter** in the terminal.
-2. The bot scans the form, Claude plans every field, and the bot fills them.
-   You'll see a line-by-line report of what was filled or skipped and why.
-3. Review the form in the browser. Fix anything, complete custom widgets the
-   scanner couldn't reach, then:
-   - **r** — rescan & fill again (use this on multi-step forms after clicking *Next*,
-     or after you fixed something)
-   - **s** — have the bot click the submit button
-   - **d** — you submitted it yourself; log it and finish
-   - **q** — quit without applying
+Dry run validates every line without opening a database. Explicit import is atomic and retains receipts: repeating it preserves edits and does not resurrect deleted imported records. Malformed lines produce bounded line-numbered errors instead of being silently skipped. Backup uses SQLite's backup API and refuses an existing destination. Choose a new filename each time. Editor draft export contains one unsaved form, not a database backup.
+
+For a restore rehearsal, copy a backup into a **new** directory as `applications.sqlite3`, then run a dashboard against that directory on a separate port. Do not copy only the main live database file while committed changes may remain in its WAL.
+
+## Assisted form filling
+
+The original browser workflow remains separate:
 
 ```powershell
-python -m applybot history      # everything you've applied to
+python -m venv .venv
+./.venv/Scripts/python -m pip install -r requirements.txt
+./.venv/Scripts/python -m playwright install chromium
+./.venv/Scripts/python -m applybot init
+./.venv/Scripts/python -m applybot apply --help
 ```
 
-## Choosing a planner
+Edit `profile.yaml` yourself. The neutral template uses blank text and unknown (`null`) yes/no facts. Document paths resolve relative to the profile. `--llm local` uses offline rules; other existing adapters depend on a configured CLI or provider. Their live availability and model defaults were not verified in this pass. Review all generated answers and factual claims before use.
 
-The default needs **no API key**:
+After scanning and filling, the CLI waits: `r` rescans; `s` requests confirmation before attempting the submit button; `d` records a user-reported submission; `q` abandons the attempt. The dashboard cannot trigger this automation. The offline planner now skips unknown answers and leaves consent/certification checkboxes for manual review. Real profiles, browser sessions, and applications were not used in verification.
 
-| `--llm`    | What it is                                        | API key |
-|------------|---------------------------------------------------|---------|
-| `cli`      | **Default.** Claude via your Claude Code login (`claude -p`) — best form understanding + written answers | none |
-| `local`    | Offline rule-based planner from profile.yaml — instant, free, skips essay questions | none |
-
-`--model` with `--llm cli` accepts Claude Code model names (`sonnet`, `haiku`,
-`opus`) if you want to trade quality for speed/quota.
-
-API-key providers are still supported (keys go in `.env` or the environment):
-
-| `--llm`    | Provider            | Default model         | API key env var    |
-|------------|---------------------|-----------------------|--------------------|
-| `claude`   | Anthropic API       | `claude-opus-4-8`     | `ANTHROPIC_API_KEY`|
-| `deepseek` | DeepSeek            | `deepseek-chat`       | `DEEPSEEK_API_KEY` |
-| `qwen`     | Alibaba DashScope   | `qwen-plus`           | `DASHSCOPE_API_KEY`|
-| `kimi`     | Moonshot            | `kimi-k2-turbo-preview` | `MOONSHOT_API_KEY` |
-| `glm`      | Zhipu (bigmodel.cn) | `glm-4.6`             | `ZHIPU_API_KEY`    |
-| `minimax`  | MiniMax             | `MiniMax-M2`          | `MINIMAX_API_KEY`  |
-| `custom`   | any OpenAI-compatible endpoint | from `APPLYBOT_MODEL` | `APPLYBOT_API_KEY` |
+## Verify
 
 ```powershell
-# Examples
-python -m applybot apply "<url>" --llm deepseek
-python -m applybot apply "<url>" --llm qwen --model qwen-flash
-python -m applybot apply "<url>" --llm kimi --model kimi-k2-0905-preview
-
-# Any other OpenAI-compatible endpoint (local Ollama, OpenRouter, etc.)
-# via env vars (put them in .env):
-#   APPLYBOT_BASE_URL=https://openrouter.ai/api/v1
-#   APPLYBOT_API_KEY=sk-or-...
-#   APPLYBOT_MODEL=deepseek/deepseek-chat
-python -m applybot apply "<url>" --llm custom
+./.venv/Scripts/python -m pip install -r requirements-dev.txt
+./.venv/Scripts/python -m playwright install chromium
+./.venv/Scripts/python scripts/verify.py
+./.venv/Scripts/python scripts/verify_browser.py
+node --check applybot/web/app.js
 ```
 
-Defaults can also be set once via env: `APPLYBOT_LLM=deepseek` makes DeepSeek the
-default provider, and `APPLYBOT_MODEL=...` overrides any preset's model name.
-Cheap models occasionally return malformed plans — the bot auto-repairs once and
-tells you what it skipped, so review the browser a little more carefully than
-you would with Claude.
-
-## How it works
-
-- **Playwright** drives a persistent Chrome profile (`.browser_profile/`), so
-  logins to Workday-style portals survive between runs.
-- A scan script tags every visible input/select/textarea/radio-group and extracts
-  its label, options, and current value.
-- The LLM receives your profile + the page text + the scanned fields and returns
-  a structured fill plan (validated with Pydantic). On Claude this uses native
-  structured outputs and prompt caching (multi-step forms only pay for the
-  profile once); on OpenAI-compatible providers it uses JSON mode with a
-  one-shot auto-repair if the model returns malformed JSON.
-- Free-text questions ("Why do you want to work here?") are answered in your
-  voice using `background`, `writing_style`, and the job description on the page.
-
-## Limitations & good sense
-
-- Fancy custom widgets (React comboboxes, some Ashby/Workday dropdowns) may not be
-  scannable — fill those by hand, then press **r** so the bot does the rest.
-- CAPTCHAs and account sign-ins are yours to handle (the persistent profile helps).
-- Always review before submitting. You're accountable for every answer sent.
-- The bot is built to be truthful: it only asserts facts present in `profile.yaml`
-  and skips questions it can't answer from it.
-
-## Layout
-
-```
-applybot/
-  cli.py       command-line interface + interactive apply loop
-  browser.py   Playwright: scan fields, fill/select/check/upload
-  llm.py       Claude call -> structured FormPlan
-  ats.py       ATS platform detection + per-platform hints
-  profile.py   profile.yaml loading
-  tracker.py   data/applications.jsonl history
-profile.example.yaml   template — copy to profile.yaml
-```
+The first script parses Python and runs 43 store, HTTP, import, profile, and CLI tests. The second runs eight real Chromium scenarios with temporary local fixtures, writes JSON evidence, and captures desktop/narrow screenshots. Node provides an optional JavaScript syntax check and is not needed to run the tracker. See [verification scope and limits](astraupskill/VERIFICATION.md).
